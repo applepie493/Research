@@ -1,0 +1,134 @@
+#Frontend
+
+---
+
+# 🎨 フロントエンド構成：ブロックチェーン永続メモアプリ（例名：**Eternote**）
+
+---
+
+## 🧱 全体アーキテクチャ概要
+
+```
+┌───────────────────────────────────────────────┐
+│                Frontend (Next.js + TypeScript)              │
+│   ├── Wagmi + Viem（ウォレット接続・署名）                │
+│   ├── TailwindCSS（UIスタイル）                           │
+│   ├── React Query / Zustand（状態管理）                   │
+│   ├── Pinata SDK（IPFSアップロード）                      │
+│   └── API Route（IPFSアップロード補助や署名確認）         │
+└───────────────────────────────────────────────┘
+                     ↓
+        Wallet Signature → MetaMask / WalletConnect
+                     ↓
+      Smart Contract (EVM, Solidity)
+                     ↓
+         Blockchain (Polygon, Base, etc.)
+                     ↓
+              IPFS / Arweave Storage
+```
+
+---
+
+## 🪶 コア機能構成
+
+| 機能          | 実装ポイント                                        |
+| ----------- | --------------------------------------------- |
+| 🔐 ウォレット接続  | Wagmi + RainbowKitを使うとUXが良い。                  |
+| 📝 メモ投稿フォーム | React Hook Formで構築。                           |
+| 📦 IPFS保存   | Pinataまたはweb3.storageを利用。アップロード後CIDを受け取る。     |
+| 🧾 メモ一覧表示   | 自分のウォレットアドレスに紐づくメモをスマコンから取得。                  |
+| 🔍 メモ詳細     | CID経由でIPFS上の内容を取得して表示。                        |
+| 🧠 署名確認     | EIP-191/EIP-4361署名（Sign-In with Ethereum）を利用。 |
+| 🕰️ タイムスタンプ | ブロックチェーンのtimestampを使用。                        |
+
+---
+
+## 🧩 ディレクトリ構成（Next.js App Router想定）
+
+```
+/src
+ ├── app/
+ │    ├── page.tsx                 # メインページ（メモ一覧）
+ │    ├── new/page.tsx             # 新規メモ作成
+ │    ├── memo/[id]/page.tsx       # メモ詳細
+ │    └── layout.tsx               # 共通レイアウト
+ │
+ ├── components/
+ │    ├── WalletButton.tsx         # ウォレット接続ボタン
+ │    ├── MemoCard.tsx             # メモカードUI
+ │    ├── MemoForm.tsx             # 投稿フォーム
+ │
+ ├── lib/
+ │    ├── ipfs.ts                  # IPFSアップロードロジック
+ │    ├── contract.ts              # スマコンとの通信 (viem)
+ │    ├── wallet.ts                # Wagmi設定
+ │
+ ├── hooks/
+ │    ├── useMemos.ts              # メモ取得・作成フック
+ │
+ ├── styles/
+ │    └── globals.css              # TailwindCSS設定
+ │
+ └── types/
+      └── memo.ts                  # メモデータ型定義
+```
+
+---
+
+## 🧠 データフロー（メモ投稿時）
+
+1. **ユーザーがメモを入力**
+   ↓
+2. **フロントで署名**（メモ内容＋timestamp）
+   ↓
+3. **メモ内容をIPFSにアップロード → CID取得**
+   ↓
+4. **スマートコントラクトに以下を送信**
+
+   ```json
+   {
+     "cid": "QmXXXXX",
+     "hash": "0xabc123...", // contentのkeccak256
+     "timestamp": 1729309400
+   }
+   ```
+
+   ↓
+5. **メモ一覧で自分のウォレットのメモを取得して表示**
+
+---
+
+## 🧰 使用主要ライブラリ
+
+| ライブラリ                                     | 用途         |
+| ----------------------------------------- | ---------- |
+| `next`, `react`, `typescript`             | 基本構成       |
+| `wagmi`, `viem`, `@rainbow-me/rainbowkit` | Web3連携     |
+| `react-query` or `zustand`                | 状態・データ管理   |
+| `tailwindcss`                             | UIスタイリング   |
+| `pinata-sdk` or `web3.storage`            | IPFSアップロード |
+| `date-fns`                                | 日付処理       |
+
+---
+
+## 🧩 UIイメージ（UX志向）
+
+* **トップページ**：自分のウォレット接続 → メモ一覧表示
+* **「新しいメモを書く」ボタン** → `/new` へ遷移
+* **メモ作成画面**：
+
+  * タイトル
+  * 本文（Markdown対応可）
+  * 「保存して署名」ボタン
+  * 保存完了後 → トランザクションハッシュ表示
+
+---
+
+## 💬 UXの方向性
+
+* **Web3らしさ**よりも「シンプルなメモ体験」を優先。
+* ウォレット署名は自動で軽く（EIP-4361方式）
+* 保存後に「このメモはあなたのウォレットに記録されました」的なメッセージ。
+
+---
+
